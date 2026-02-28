@@ -42,10 +42,10 @@ const customerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    totalOrderAt: Date,
+    lastOrderAt: Date,
     totalOrders: [Date],
   },
   { timestamps: true }
 );
 
-export const CUSTOMER = mongoose.model("Customer", customerSchema);
+export const Customer = mongoose.model("Customer", customerSchema);

@@ -2,11 +2,14 @@ import mongoose from "mongoose";
 
 const otpSchema = new mongoose.Schema(
   {
-    user: mongoose.Schema.Types.ObjectId,
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     otp: String,
     otpExpiration: Date,
   },
   { timestamps: true }
 );
 
-export const OTP = mongoose.model("Otp", otpSchema);
+export const Otp = mongoose.model("Otp", otpSchema);
