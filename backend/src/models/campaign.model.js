@@ -29,13 +29,12 @@ const campaignSchema = new mongoose.Schema(
     },
     state: {
       type: String,
-      enum: ["draft", "schequled", "sent"],
+      enum: ["draft", "scheduled", "sent"],
       default: "draft",
     },
     sentCount: Number,
     scheduledAt: {
       type: Date,
-      required: [true, "Campaign schedul date is required"],
     },
   },
   { timestamps: true }
