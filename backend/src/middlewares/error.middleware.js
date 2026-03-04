@@ -5,6 +5,6 @@ export const errorMiddleware = (err, req, res, next) => {
     success: false,
     message: err.message || "Internal server error",
     errors: err.errors || [],
-    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    stack: err.stack,
   });
 };

@@ -1,17 +1,18 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-let userSchema = new mongoose.Schema(
+
+const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      require: [true, "User name is required"],
+      required: [true, "User name is required"],
       trim: true,
-      minlength: [2, "User should have min length of 2 charactor"],
+      minlength: [2, "User should have min length of 2 characters"],
     },
     email: {
       type: String,
-      require: [true, "E-Mail is required"],
+      required: [true, "E-Mail is required"],
       unique: true,
       trim: true,
       match: [
@@ -21,12 +22,13 @@ let userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      require: [true, "Password is required"],
-      minlength: [4, "Password should have min length of 4 charactor"],
+      required: [true, "Password is required"],
+      minlength: [4, "Password should have min length of 4 characters"],
     },
     role: {
       type: String,
       enum: ["admin", "manager", "employee"],
+      default: "employee",
     },
     refreshToken: {
       type: String,
@@ -35,20 +37,18 @@ let userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
 
   this.password = await bcrypt.hash(this.password, 10);
-
-  return next();
 });
 
-userSchema.method.isPasswordCorrect = async function (password) {
-  return await bcrypt.compare(password, this.password);
+userSchema.methods.isPasswordCorrect = async function (password) {
+  return bcrypt.compare(password, this.password);
 };
 
-userSchema.method.generateAccessToken = async function () {
-  return await jwt.sign(
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign(
     {
       _id: this._id,
       name: this.name,
@@ -62,8 +62,8 @@ userSchema.method.generateAccessToken = async function () {
   );
 };
 
-userSchema.method.generateRefreshToken = async function () {
-  return await jwt.sign({ _id: this._id }, process.env.REFRESH_TOKEN_SECRET, {
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign({ _id: this._id }, process.env.REFRESH_TOKEN_SECRET, {
     expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
   });
 };
