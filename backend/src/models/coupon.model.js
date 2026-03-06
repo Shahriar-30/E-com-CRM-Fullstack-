@@ -25,10 +25,6 @@ const couponSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    applicableTo: {
-      type: String,
-      default: "all",
-    },
     isActive: {
       type: Boolean,
       default: true,

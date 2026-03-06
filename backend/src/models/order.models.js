@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      required: [true, "Order status is required"],
+      default: "pending",
       enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
     },
     // total before discount

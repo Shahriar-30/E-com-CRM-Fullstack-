@@ -13,7 +13,7 @@ export const customerRouter = express.Router();
 // global route
 customerRouter.use(authMiddleware);
 
-// other route
+// local route
 customerRouter.route("/createcustomer").post(createCustomer);
 customerRouter.route("/findcustomer").get(findCustomer);
 customerRouter

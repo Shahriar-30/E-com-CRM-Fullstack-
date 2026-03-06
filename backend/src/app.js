@@ -12,10 +12,12 @@ app.use(cookieParser());
 // ==== = routes imports = ====
 import { userRouter } from "./routes/user.route.js";
 import { customerRouter } from "./routes/customer.route.js";
+import { orderRouter } from "./routes/order.route.js";
 // routes
 
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/customer", customerRouter);
+app.use("/api/v1/order", orderRouter);
 
 // global error handeler
 app.use(errorMiddleware);
