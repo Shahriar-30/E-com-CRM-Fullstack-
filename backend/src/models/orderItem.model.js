@@ -22,7 +22,7 @@ const orderItemSchema = new mongoose.Schema(
       required: [true, "Order item unit price is required"],
       min: 0,
     },
-    lineTotal: {
+    total: {
       type: Number,
       required: [true, "Order item total is required"],
     },
@@ -31,8 +31,8 @@ const orderItemSchema = new mongoose.Schema(
 );
 
 orderItemSchema.pre("validate", function (next) {
-  this.lineTotal = this.quantity * this.unitPrice;
-  next();
+  this.total = this.quantity * this.unitPrice;
+  next;
 });
 
 export const OrderItem = mongoose.model("OrderItem", orderItemSchema);

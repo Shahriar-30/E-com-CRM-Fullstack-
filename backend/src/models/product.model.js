@@ -10,7 +10,6 @@ const productSchema = new mongoose.Schema(
     // unique product code for inventory
     sku: {
       type: String,
-      required: [true, "Product sku is required"],
       trim: true,
     },
     price: {
@@ -28,6 +27,11 @@ const productSchema = new mongoose.Schema(
     },
     tags: {
       type: [String],
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "Product createdBy is required"],
     },
   },
   { timestamps: true }
