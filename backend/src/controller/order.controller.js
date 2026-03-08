@@ -48,6 +48,11 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   const total = subTotal - coupon_discount;
 
+  customer.orderCount += 1;
+  customer.totalSpent += total;
+  customer.lastOrderAt = new Date();
+  await customer.save();
+
   const order = await Order.create({
     customerId,
     couponId,
@@ -59,4 +64,62 @@ export const createOrder = asyncHandler(async (req, res) => {
   });
 
   res.status(201).json(new apiRes(201, order, "Order created successfully"));
+});
+
+export const getOrderById = asyncHandler(async (req, res) => {
+  let { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id))
+    throw new apiError(400, "Invalid order id");
+
+  const order = await Order.aggregate([
+    {
+      $match: { _id: new mongoose.Types.ObjectId(id) },
+    },
+    {
+      $lookup: {
+        from: "customers",
+        localField: "customerId",
+        foreignField: "_id",
+        as: "customer_details",
+      },
+    },
+    {
+      $addFields: {
+        customer_details: { $arrayElemAt: ["$customer_details", 0] },
+      },
+    },
+  ]);
+  if (!order.length) throw new apiError(404, "Order not found");
+
+  res.json(order);
+});
+
+export const getOrderByStatus = asyncHandler(async (req, res) => {
+  let { status } = req.query;
+  if (!status) throw new apiError(400, "Order status is missing");
+
+  let order = await Order.find({ status });
+  if (!order) throw new apiError(404, "Orders not found");
+
+  res
+    .status(200)
+    .json(
+      new apiRes(200, order, "Orders found successfully accoding to status")
+    );
+});
+
+export const updateOrderStatus = asyncHandler(async (req, res) => {
+  let { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id))
+    throw new apiError(400, "Invalid order id");
+
+  let { status } = req.query;
+  if (!status) throw new apiError(400, "Order status is missing");
+
+  const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+  if (!order) throw new apiError(404, "Order not found");
+
+  res
+    .status(200)
+    .json(new apiRes(200, order, "Order status updated successfully"));
 });

@@ -51,7 +51,6 @@ const customerSchema = new mongoose.Schema(
       unsubscribedAt: Date,
     },
     lastOrderAt: Date,
-    totalOrders: [Date],
   },
   { timestamps: true }
 );
