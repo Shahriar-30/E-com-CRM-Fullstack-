@@ -47,7 +47,7 @@ const segmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-mongoose.pre("save", function (next) {
+segmentSchema.pre("save", function (next) {
   this.count = this.customerIds.length;
   next();
 });

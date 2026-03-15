@@ -4,13 +4,14 @@ const customerSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      require: [true, "User name is required"],
+      required: [true, "User name is required"],
       trim: true,
-      minlength: [2, "User should have min length of 2 charactor"],
+      minlength: [2, "User should have min length of 2 characters"],
     },
+
     email: {
       type: String,
-      require: [true, "E-Mail is required"],
+      required: [true, "E-Mail is required"],
       unique: true,
       trim: true,
       match: [
@@ -18,38 +19,36 @@ const customerSchema = new mongoose.Schema(
         "Invalid E-Mail",
       ],
     },
+
     phone: {
-      type: Number,
+      type: String,
       unique: true,
       trim: true,
     },
+
     totalSpent: {
       type: Number,
       default: 0,
-      trim: true,
     },
+
     orderCount: {
       type: Number,
       default: 0,
-      trim: true,
-    },
-    status: {
-      type: String,
-      enum: ["new", "loyal", "at-risk", "vip"],
-      default: "new",
     },
     source: {
       type: String,
       trim: true,
     },
+
     emailSettings: {
-      subscribed: Boolean,
-      welcomeSent: Boolean,
-      marketingEmails: Boolean,
-      transactionalEmails: Boolean,
+      subscribed: { type: Boolean, default: true },
+      welcomeSent: { type: Boolean, default: false },
+      marketingEmails: { type: Boolean, default: true },
+      transactionalEmails: { type: Boolean, default: true },
       lastEmailSentAt: Date,
       unsubscribedAt: Date,
     },
+
     lastOrderAt: Date,
   },
   { timestamps: true }
