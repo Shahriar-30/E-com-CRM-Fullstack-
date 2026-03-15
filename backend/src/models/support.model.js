@@ -27,11 +27,13 @@ const supportSchema = new mongoose.Schema(
       enum: ["low", "medium", "high"],
       required: [true, "Support priority is required"],
     },
-    messages: {
-      type: String,
-      trim: true,
-      required: [true, "Support message is required"],
-    },
+    messages: [
+      {
+        sender: { type: String, enum: ["customer", "agent"], required: true },
+        message: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     resolved: {
       type: Boolean,
       default: false,

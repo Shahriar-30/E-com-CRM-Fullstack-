@@ -6,6 +6,7 @@ import {
   findCustomer,
   getCustomerById,
   updateCustomerById,
+  unsubscribeCustomer,
 } from "../controller/customer.controller.js";
 
 export const customerRouter = express.Router();
@@ -21,3 +22,5 @@ customerRouter
   .get(getCustomerById)
   .delete(deleteCustomerById)
   .put(updateCustomerById);
+
+customerRouter.route("/:id/unsubscribe").post(unsubscribeCustomer);

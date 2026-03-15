@@ -93,20 +93,21 @@ export const deleteCouponById = asyncHandler(async (req, res) => {
 });
 
 export const isValidCoupon = asyncHandler(async (req, res) => {
-  let { code } = req.body;
+  let { code, subTotal } = req.query;
+  if (!code) throw new apiError(400, "Coupon code is required");
 
   let coupon = await Coupon.findOne({ code });
   if (!coupon) throw new apiError(404, "Invalid coupon code");
 
   if (!coupon.isActive) throw new apiError(400, "Coupon is not active");
 
-  if (subTotal < minOrderValue)
+  if (subTotal && Number(subTotal) < coupon.minOrderValue)
     throw new apiError(400, `Minimum order value is ${coupon.minOrderValue}`);
 
   if (coupon.usedCount >= coupon.maxUser)
     throw new apiError(400, "Coupon usage limit reached");
 
-  if (coupon.expiresAt && coupon.expiresAt < new Date.now())
+  if (coupon.expiresAt && coupon.expiresAt < new Date())
     throw new apiError(400, "Coupon has expired");
 
   res.status(200).json(new apiRes(200, coupon, "Coupon code is valid"));

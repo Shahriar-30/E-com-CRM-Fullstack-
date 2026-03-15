@@ -38,7 +38,7 @@ export const createOrderItem = asyncHandler(async (req, res) => {
 });
 
 export const getOrderItems = asyncHandler(async (req, res) => {
-  const { orderId } = req.body;
+  const { orderId } = req.query;
 
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new apiError(400, "Invalid order id");
@@ -59,7 +59,7 @@ export const getOrderItems = asyncHandler(async (req, res) => {
 });
 
 export const deleteOrderItems = asyncHandler(async (req, res) => {
-  const { orderId } = req.body;
+  const { orderId } = req.query;
 
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new apiError(400, "Invalid order id");

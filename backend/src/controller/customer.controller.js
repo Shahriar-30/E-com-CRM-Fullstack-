@@ -125,3 +125,22 @@ export const updateCustomerById = asyncHandler(async (req, res) => {
     .status(200)
     .json(new apiRes(200, customer, "Updated the customer successfully"));
 });
+
+export const unsubscribeCustomer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id))
+    throw new apiError(400, "Invalid customer id");
+
+  const customer = await Customer.findById(id);
+  if (!customer) throw new apiError(404, "Customer not found");
+
+  customer.emailSettings.subscribed = false;
+  customer.emailSettings.unsubscribedAt = new Date();
+
+  await customer.save();
+
+  res
+    .status(200)
+    .json(new apiRes(200, null, "Customer unsubscribed successfully"));
+});

@@ -1,22 +1,23 @@
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.ethereal.email",
-  port: 465,
-  secure: true, // Use true for port 465, false for port 587
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: process.env.SMTP_PORT == 465, // true for port 465, false for other ports
   auth: {
-    user: "alsiphat30@gmail.com",
-    pass: "wpckijqqksovczpf",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
-export const sendEmail = async (from, to, subject, text) => {
+export const sendEmail = async (from, to, subject, text, html) => {
   try {
     const info = await transporter.sendMail({
-      from,
+      from: from || process.env.SMTP_FROM_EMAIL,
       to,
       subject,
       text,
+      html,
     });
 
     console.log("Message sent:", info.messageId);
@@ -26,5 +27,3 @@ export const sendEmail = async (from, to, subject, text) => {
     throw err;
   }
 };
-
-sendEmail("alsiphat30@gmail.com", "alsiphat8@gmail.com", "subjecls", "lsdfh");

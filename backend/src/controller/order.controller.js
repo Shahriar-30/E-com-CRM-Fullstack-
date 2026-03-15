@@ -5,6 +5,11 @@ import { Customer } from "../models/customer.model.js";
 import { Coupon } from "../models/coupon.model.js";
 import { Order } from "../models/order.models.js";
 import { apiRes } from "../utils/apiRes.js";
+import { sendEmail } from "../utils/sendEmail.js";
+import {
+  generateOrderConfirmationEmail,
+  generateWelcomeEmail,
+} from "../utils/emailTemplates.js";
 
 export const createOrder = asyncHandler(async (req, res) => {
   let { customerId, couponCode, subTotal, paymentMethod, shippingAddress } =
@@ -27,13 +32,13 @@ export const createOrder = asyncHandler(async (req, res) => {
 
     if (!coupon.isActive) throw new apiError(400, "Coupon is not active");
 
-    if (subTotal < minOrderValue)
+    if (subTotal < coupon.minOrderValue)
       throw new apiError(400, `Minimum order value is ${coupon.minOrderValue}`);
 
     if (coupon.usedCount >= coupon.maxUser)
       throw new apiError(400, "Coupon usage limit reached");
 
-    if (coupon.expiresAt && coupon.expiresAt < new Date.now())
+    if (coupon.expiresAt && coupon.expiresAt < new Date())
       throw new apiError(400, "Coupon has expired");
     // calculation
     if (coupon.discountType === "percentage")
@@ -48,6 +53,7 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   const total = subTotal - coupon_discount;
 
+  // Update customer stats
   customer.orderCount += 1;
   customer.totalSpent += total;
   customer.lastOrderAt = new Date();
@@ -62,6 +68,47 @@ export const createOrder = asyncHandler(async (req, res) => {
     paymentMethod,
     shippingAddress,
   });
+
+  // --- Email Logic (Fire and Forget) ---
+  try {
+    const emailSettings = customer.emailSettings || {};
+
+    // 1. Transactional: Order Confirmation (Respect transactionalEmails flag, default true)
+    if (emailSettings.transactionalEmails !== false) {
+      const { subject, html } = generateOrderConfirmationEmail(
+        customer.name,
+        order._id,
+        total
+      );
+      await sendEmail(
+        null,
+        customer.email,
+        subject,
+        "Order Confirmation",
+        html
+      );
+    }
+
+    // 2. Marketing: Welcome Email (If first order AND marketing allowed)
+    // We just incremented orderCount, so if it is 1, this is the first order.
+    if (
+      customer.orderCount === 1 &&
+      !emailSettings.welcomeSent &&
+      emailSettings.marketingEmails !== false
+    ) {
+      const { subject, html } = generateWelcomeEmail(customer.name);
+      await sendEmail(null, customer.email, subject, "Welcome!", html);
+
+      // Update welcomeSent flag
+      customer.emailSettings.welcomeSent = true;
+      customer.emailSettings.lastEmailSentAt = new Date();
+      // We need to save again to persist the email flag change
+      await customer.save({ validateBeforeSave: false });
+    }
+  } catch (emailError) {
+    // Log error but don't fail the order creation
+    console.error("Failed to send order emails:", emailError);
+  }
 
   res.status(201).json(new apiRes(201, order, "Order created successfully"));
 });

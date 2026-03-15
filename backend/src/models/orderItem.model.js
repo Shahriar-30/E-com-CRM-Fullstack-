@@ -32,7 +32,7 @@ const orderItemSchema = new mongoose.Schema(
 
 orderItemSchema.pre("validate", function (next) {
   this.total = this.quantity * this.unitPrice;
-  next;
+  next();
 });
 
 export const OrderItem = mongoose.model("OrderItem", orderItemSchema);
