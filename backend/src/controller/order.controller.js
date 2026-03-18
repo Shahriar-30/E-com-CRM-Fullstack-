@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Customer } from "../models/customer.model.js";
 import { Coupon } from "../models/coupon.model.js";
 import { Order } from "../models/order.models.js";
+import { OrderItem } from "../models/orderItem.model.js";
 import { apiRes } from "../utils/apiRes.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import {
@@ -145,13 +146,17 @@ export const getOrderByStatus = asyncHandler(async (req, res) => {
   let { status } = req.query;
   if (!status) throw new apiError(400, "Order status is missing");
 
-  let order = await Order.find({ status });
-  if (!order) throw new apiError(404, "Orders not found");
+  const query = {};
+  if (status && status.toLowerCase() !== "all") {
+    query.status = status;
+  }
+
+  const orders = await Order.find(query).sort({ createdAt: -1 });
 
   res
     .status(200)
     .json(
-      new apiRes(200, order, "Orders found successfully accoding to status")
+      new apiRes(200, orders, "Orders found successfully according to status")
     );
 });
 
@@ -169,4 +174,41 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new apiRes(200, order, "Order status updated successfully"));
+});
+
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new apiError(400, "Invalid order id");
+  }
+
+  const order = await Order.findById(id);
+  if (!order) {
+    throw new apiError(404, "Order not found");
+  }
+
+  // Revert customer stats
+  const customer = await Customer.findById(order.customerId);
+  if (customer) {
+    customer.orderCount -= 1;
+    customer.totalSpent -= order.total;
+    await customer.save({ validateBeforeSave: false });
+  }
+
+  // Revert coupon usage
+  if (order.couponId) {
+    const coupon = await Coupon.findById(order.couponId);
+    if (coupon) {
+      coupon.usedCount -= 1;
+      await coupon.save({ validateBeforeSave: false });
+    }
+  }
+
+  // Delete associated order items
+  await OrderItem.deleteMany({ orderId: id });
+
+  // Delete the order itself
+  await Order.findByIdAndDelete(id);
+
+  res.status(200).json(new apiRes(200, null, "Order deleted successfully"));
 });

@@ -1,16 +1,18 @@
 import express from "express";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
+import cors from "cors";
 import cookieParser from "cookie-parser";
-import { startAnalyticsCron, startSegmentCron } from "./utils/corn.js";
+import { startSegmentCron } from "./utils/corn.js";
 import { runSegmentEngine } from "./controller/segment.controller.js";
 
 export const app = express();
 
 // corn
 startSegmentCron(runSegmentEngine);
-startAnalyticsCron();
+// startAnalyticsCron();
 
 // helper middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

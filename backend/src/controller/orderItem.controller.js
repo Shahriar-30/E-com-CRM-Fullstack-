@@ -49,10 +49,6 @@ export const getOrderItems = asyncHandler(async (req, res) => {
     "productId",
   ]);
 
-  if (orderItems.length === 0) {
-    throw new apiError(404, "Order items not found");
-  }
-
   res
     .status(200)
     .json(new apiRes(200, orderItems, "Order items fetched successfully"));
