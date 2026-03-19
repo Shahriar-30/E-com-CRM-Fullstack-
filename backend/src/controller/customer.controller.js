@@ -16,7 +16,8 @@ export const findCustomer = asyncHandler(async (req, res) => {
     search,
   } = req.query;
 
-  let query = {};
+  // Filter by the logged-in user's ID to ensure they only see their own customers
+  let query = { createdBy: req.user._id };
 
   if (status) query.status = status;
 
@@ -50,6 +51,7 @@ export const findCustomer = asyncHandler(async (req, res) => {
   let allCustomer = await Customer.find(query)
     .skip((page - 1) * limit)
     .limit(limit)
+    .populate("createdBy", "name email")
     .sort({ createdAt: -1 });
 
   let total = await Customer.countDocuments(query);
@@ -66,16 +68,23 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   if (!name || !email) throw new apiError(400, "Name or E-Mail is required");
 
-  let user = await Customer.findOne({ email });
+  // Check if customer exists for THIS user only
+  let user = await Customer.findOne({ email, createdBy: req.user._id });
   if (user) throw new apiError(400, "Customer with E-Mail already exists");
 
   if (phone) {
-    let user = await Customer.findOne({ phone });
+    let user = await Customer.findOne({ phone, createdBy: req.user._id });
     if (user)
       throw new apiError(400, "Customer with phone number already exists");
   }
 
-  const customer = await Customer.create({ name, email, phone, source });
+  const customer = await Customer.create({
+    name,
+    email,
+    phone,
+    source,
+    createdBy: req.user._id, // Assign the new customer to the logged-in user
+  });
 
   res
     .status(201)
@@ -88,7 +97,10 @@ export const getCustomerById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new apiError(400, "Invalid customer id");
 
-  let customer = await Customer.findById(id);
+  let customer = await Customer.findOne({
+    _id: id,
+    createdBy: req.user._id,
+  }).populate("createdBy", "name");
   if (!customer) throw new apiError(404, "Customer not found");
 
   res
@@ -101,7 +113,10 @@ export const deleteCustomerById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new apiError(400, "Invalid customer id");
 
-  let customer = await Customer.findByIdAndDelete(id);
+  let customer = await Customer.findOneAndDelete({
+    _id: id,
+    createdBy: req.user._id,
+  });
   if (!customer) throw new apiError(404, "Customer not found");
 
   res
@@ -118,7 +133,11 @@ export const updateCustomerById = asyncHandler(async (req, res) => {
 
   if (!dataObj) throw new apiError(400, "No reasoure found to update customer");
 
-  let customer = await Customer.findByIdAndUpdate(id, dataObj, { new: true });
+  let customer = await Customer.findOneAndUpdate(
+    { _id: id, createdBy: req.user._id },
+    dataObj,
+    { new: true }
+  );
   if (!customer) throw new apiError(404, "Customer not found");
 
   res
@@ -132,7 +151,7 @@ export const unsubscribeCustomer = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new apiError(400, "Invalid customer id");
 
-  const customer = await Customer.findById(id);
+  const customer = await Customer.findOne({ _id: id, createdBy: req.user._id });
   if (!customer) throw new apiError(404, "Customer not found");
 
   customer.emailSettings.subscribed = false;

@@ -174,6 +174,7 @@ const Customers = () => {
               <th className="px-6 py-3">Name</th>
               <th className="px-6 py-3">Email</th>
               <th className="px-6 py-3">Orders</th>
+              <th className="px-6 py-3">Created By</th>
               <th className="px-6 py-3">Total Spent</th>
               <th className="px-6 py-3">Joined</th>
             </tr>
@@ -197,6 +198,9 @@ const Customers = () => {
                   </td>
                   <td className="px-6 py-4">{customer.email}</td>
                   <td className="px-6 py-4">{customer.orderCount}</td>
+                  <td className="px-6 py-4 text-gray-500 text-xs">
+                    {customer.createdBy?.name || "Unknown"}
+                  </td>
                   <td className="px-6 py-4">
                     ${customer.totalSpent.toFixed(2)}
                   </td>
