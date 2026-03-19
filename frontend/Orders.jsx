@@ -11,6 +11,8 @@ const Orders = () => {
   const [orderItems, setOrderItems] = useState([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [tempStatus, setTempStatus] = useState("");
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [selectionLoading, setSelectionLoading] = useState(false);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -123,18 +125,26 @@ const Orders = () => {
   const handleCreateOrder = async (e) => {
     e.preventDefault();
 
+    if (createOrderItems.length === 0) {
+      toast.error("Please add at least one item to the order.");
+      return;
+    }
+
+    setCreatingOrder(true);
     const subTotal = createOrderItems.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
       0,
     );
     const payload = { ...createData, subTotal };
 
+    let newOrderId = null;
+
     try {
       const { data } = await api.post("/order/createorder", payload);
-      const newOrderId = data.data._id;
+      newOrderId = data.data._id;
 
       // Create Order Items
-      if (createOrderItems.length > 0) {
+      try {
         await Promise.all(
           createOrderItems.map((item) =>
             api.post("/orderitem/createorderitem", {
@@ -144,6 +154,12 @@ const Orders = () => {
             }),
           ),
         );
+      } catch (itemError) {
+        // Rollback: Delete the order if items failed to create
+        if (newOrderId) {
+          await api.delete(`/order/ordermodify/${newOrderId}`);
+        }
+        throw new Error("Failed to add items to order. Order cancelled.");
       }
 
       toast.success("Order created successfully!");
@@ -155,13 +171,20 @@ const Orders = () => {
         shippingAddress: "",
       });
       setCreateOrderItems([]);
-      if (status === "pending") fetchOrders();
+      fetchOrders();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to create order");
+      toast.error(
+        error.message ||
+          error.response?.data?.message ||
+          "Failed to create order",
+      );
+    } finally {
+      setCreatingOrder(false);
     }
   };
 
   const fetchSelectionData = async () => {
+    setSelectionLoading(true);
     try {
       if (showCustomerModal) {
         const { data } = await api.get(
@@ -180,18 +203,17 @@ const Orders = () => {
         setSelectionList(filtered);
       } else if (showProductModal) {
         // Assuming product endpoint returns list
-        const { data } = await api.get(`/product`);
-        const allProducts = data.data.products || data.data || [];
-        const filtered = selectionSearch
-          ? allProducts.filter((p) =>
-              p.name.toLowerCase().includes(selectionSearch.toLowerCase()),
-            )
-          : allProducts;
-        setSelectionList(filtered);
+        // Use the correct endpoint defined in product.route.js and utilize server-side search
+        const { data } = await api.get(`/product/getproduct`, {
+          params: { query: selectionSearch },
+        });
+        setSelectionList(data.data || []);
       }
     } catch (error) {
       console.error("Failed to fetch selection data", error);
       setSelectionList([]);
+    } finally {
+      setSelectionLoading(false);
     }
   };
 
@@ -521,56 +543,62 @@ const Orders = () => {
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              {selectionList.map((item) => (
-                <div
-                  key={item._id}
-                  className="p-3 hover:bg-gray-100 cursor-pointer border-b"
-                  onClick={() => {
-                    if (showCustomerModal) {
-                      setCreateData({ ...createData, customerId: item._id });
-                      setShowCustomerModal(false);
-                    } else if (showCouponModal) {
-                      setCreateData({ ...createData, couponCode: item.code });
-                      setShowCouponModal(false);
-                    } else if (showProductModal) {
-                      addItemToOrder(item);
-                    }
-                  }}
-                >
-                  {showCustomerModal && (
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.email}</p>
-                    </div>
-                  )}
-                  {showCouponModal && (
-                    <div className="flex justify-between">
-                      <span className="font-mono font-bold text-indigo-600">
-                        {item.code}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        {item.discountType === "percentage"
-                          ? `${item.discountValue}%`
-                          : `$${item.discountValue}`}{" "}
-                        off
-                      </span>
-                    </div>
-                  )}
-                  {showProductModal && (
-                    <div className="flex justify-between">
-                      <span className="font-medium">{item.name}</span>
-                      <span className="text-sm font-bold">${item.price}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {selectionList.length === 0 && (
-                <p className="text-center p-4 text-gray-500">
-                  No results found.
-                </p>
-              )}
-            </div>
+            {selectionLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-2">
+                {selectionList.map((item) => (
+                  <div
+                    key={item._id}
+                    className="p-3 hover:bg-gray-100 cursor-pointer border-b"
+                    onClick={() => {
+                      if (showCustomerModal) {
+                        setCreateData({ ...createData, customerId: item._id });
+                        setShowCustomerModal(false);
+                      } else if (showCouponModal) {
+                        setCreateData({ ...createData, couponCode: item.code });
+                        setShowCouponModal(false);
+                      } else if (showProductModal) {
+                        addItemToOrder(item);
+                      }
+                    }}
+                  >
+                    {showCustomerModal && (
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.email}</p>
+                      </div>
+                    )}
+                    {showCouponModal && (
+                      <div className="flex justify-between">
+                        <span className="font-mono font-bold text-indigo-600">
+                          {item.code}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {item.discountType === "percentage"
+                            ? `${item.discountValue}%`
+                            : `$${item.discountValue}`}{" "}
+                          off
+                        </span>
+                      </div>
+                    )}
+                    {showProductModal && (
+                      <div className="flex justify-between">
+                        <span className="font-medium">{item.name}</span>
+                        <span className="text-sm font-bold">${item.price}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {selectionList.length === 0 && (
+                  <p className="text-center p-4 text-gray-500">
+                    No results found.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -753,9 +781,14 @@ const Orders = () => {
               </p>
               <button
                 type="submit"
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+                disabled={creatingOrder}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
               >
-                Create Order
+                {creatingOrder ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  "Create Order"
+                )}
               </button>
             </form>
           </div>

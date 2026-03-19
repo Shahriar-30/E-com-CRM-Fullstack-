@@ -13,21 +13,63 @@ export const generateWelcomeEmail = (name) => {
   };
 };
 
-export const generateOrderConfirmationEmail = (name, orderId, total) => {
+export const generateOrderStatusEmail = (name, orderId, status, total) => {
+  const statusConfig = {
+    pending: {
+      subject: `Order Confirmation #${orderId}`,
+      color: "#eab308", // yellow-500
+      message: `Your order <strong>#${orderId}</strong> has been placed successfully. We will notify you once processing begins.`,
+    },
+    processing: {
+      subject: `Update: We're working on Order #${orderId}`,
+      color: "#3b82f6", // blue-500
+      message: `We are currently processing your order <strong>#${orderId}</strong>. We are getting everything ready for you!`,
+    },
+    shipped: {
+      subject: `Order #${orderId} Shipped! 🚚`,
+      color: "#6366f1", // indigo-500
+      message: `Great news! Your order <strong>#${orderId}</strong> has been shipped and is on its way.`,
+    },
+    delivered: {
+      subject: `Order #${orderId} Delivered 🎉`,
+      color: "#22c55e", // green-500
+      message: `Your order <strong>#${orderId}</strong> has been delivered. We hope you enjoy your purchase!`,
+    },
+    cancelled: {
+      subject: `Order #${orderId} Cancelled`,
+      color: "#ef4444", // red-500
+      message: `Your order <strong>#${orderId}</strong> has been cancelled. If you have questions, please contact our support.`,
+    },
+  };
+
+  const config = statusConfig[status.toLowerCase()] || statusConfig.pending;
+
   return {
-    subject: `Order Confirmation #${orderId}`,
+    subject: config.subject,
+    text: config.message.replace(/<[^>]*>/g, ""), // Plain text fallback
     html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h2>Hi ${name},</h2>
-        <p>Your order <strong>#${orderId}</strong> has been placed successfully.</p>
-        <h3>Order Summary</h3>
-        <p><strong>Total Amount:</strong> $${total}</p>
-        <p>We are processing your order and will notify you when it ships.</p>
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #333;">Hi ${name},</h2>
+        <p style="font-size: 16px; color: #555;">${config.message}</p>
+        
+        <div style="margin: 20px 0; padding: 15px; background-color: #f9fafb; border-left: 4px solid ${config.color}; border-radius: 4px;">
+           <p style="margin: 0; font-weight: bold; color: #374151;">
+             Current Status: <span style="color: ${config.color}; text-transform: uppercase;">${status}</span>
+           </p>
+           ${total ? `<p style="margin: 5px 0 0 0; color: #6b7280;">Total Amount: $${total}</p>` : ""}
+        </div>
+
+        <p style="color: #666; font-size: 14px;">You can view more details in your account.</p>
         <br/>
-        <p>Thanks for shopping with us!</p>
+        <p style="color: #999; font-size: 12px;">Thanks for shopping with us!</p>
       </div>
     `,
   };
+};
+
+export const generateOrderConfirmationEmail = (name, orderId, total) => {
+  // Reuse the generalized status email for the initial confirmation (pending)
+  return generateOrderStatusEmail(name, orderId, "pending", total);
 };
 
 export const generateCampaignEmail = (name, content, couponCode) => {
