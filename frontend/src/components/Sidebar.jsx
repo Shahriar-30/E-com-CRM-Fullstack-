@@ -7,10 +7,9 @@ import {
   Ticket,
   Megaphone,
   MessageSquare,
-  BarChart3,
   LogOut,
 } from "lucide-react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "../auth/AuthContext";
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -20,7 +19,6 @@ const navItems = [
   { href: "/coupons", icon: Ticket, label: "Coupons" },
   { href: "/marketing", icon: Megaphone, label: "Marketing" },
   { href: "/support", icon: MessageSquare, label: "Support" },
-  { href: "/analytics", icon: BarChart3, label: "Analytics" },
 ];
 
 const Sidebar = () => {

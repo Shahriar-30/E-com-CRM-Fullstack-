@@ -131,3 +131,12 @@ export const getAnalytics = asyncHandler(async (req, res) => {
       )
     );
 });
+
+export const refreshAnalytics = asyncHandler(async (req, res) => {
+  // Calculate for today (new Date()) to provide real-time updates for the dashboard
+  await calculateDailyAnalytics(new Date());
+
+  res
+    .status(200)
+    .json(new apiRes(200, null, "Analytics refreshed successfully"));
+});

@@ -1,5 +1,8 @@
+import mongoose from "mongoose";
 import { Customer } from "../models/customer.model.js";
 import { Segment } from "../models/segment.model.js";
+import { apiError } from "../utils/apiError.js";
+import { apiRes } from "../utils/apiRes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const createSegment = asyncHandler(async (req, res) => {
@@ -13,6 +16,7 @@ export const createSegment = asyncHandler(async (req, res) => {
     name,
     rules,
     customerIds: customerIds || [],
+    createdBy: req.user._id,
   });
 
   res
@@ -21,7 +25,9 @@ export const createSegment = asyncHandler(async (req, res) => {
 });
 
 export const getSegments = asyncHandler(async (req, res) => {
-  const segments = await Segment.find().sort({ createdAt: -1 });
+  const segments = await Segment.find({ createdBy: req.user._id }).sort({
+    createdAt: -1,
+  });
 
   res
     .status(200)
@@ -36,8 +42,8 @@ export const updateSegment = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid segment id");
   }
 
-  const segment = await Segment.findByIdAndUpdate(
-    id,
+  const segment = await Segment.findOneAndUpdate(
+    { _id: id, createdBy: req.user._id },
     { name, rules },
     { new: true }
   );
@@ -58,7 +64,10 @@ export const deleteSegment = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid segment id");
   }
 
-  const segment = await Segment.findByIdAndDelete(id);
+  const segment = await Segment.findOneAndDelete({
+    _id: id,
+    createdBy: req.user._id,
+  });
 
   if (!segment) {
     throw new apiError(404, "Segment not found");
@@ -67,7 +76,7 @@ export const deleteSegment = asyncHandler(async (req, res) => {
   res.status(200).json(new apiRes(200, null, "Segment deleted successfully"));
 });
 
-export const runSegmentEngine = async () => {
+export const runSegmentEngine = async (req, res) => {
   const segments = await Segment.find();
 
   for (const segment of segments) {
@@ -84,6 +93,7 @@ export const runSegmentEngine = async () => {
       [field]: {
         [operatorMap[operator]]: value,
       },
+      createdBy: segment.createdBy,
     };
 
     const customers = await Customer.find(query).select("_id");
@@ -94,5 +104,11 @@ export const runSegmentEngine = async () => {
       customerIds,
       count: customerIds.length,
     });
+  }
+
+  if (res) {
+    res
+      .status(200)
+      .json(new apiRes(200, null, "Segment engine ran successfully"));
   }
 };

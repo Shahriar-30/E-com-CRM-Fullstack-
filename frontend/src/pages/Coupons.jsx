@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "./axios";
+import api from "../../axios";
 import toast from "react-hot-toast";
 import {
   Plus,

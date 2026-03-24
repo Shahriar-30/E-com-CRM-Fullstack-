@@ -43,13 +43,18 @@ const segmentSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true }
 );
 
 segmentSchema.pre("save", function (next) {
   this.count = this.customerIds.length;
-  next();
+  return;
 });
 
 export const Segment = mongoose.model("Segment", segmentSchema);

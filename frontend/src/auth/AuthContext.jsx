@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from "react";
-import api from "./axios";
+import api from "../../axios";
 import toast from "react-hot-toast";
 
 const AuthContext = createContext(null);
@@ -69,6 +69,26 @@ export const AuthProvider = ({ children }) => {
     delete api.defaults.headers.common["Authorization"];
     toast.success("Logged out.");
   };
+
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          setUser(null);
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          delete api.defaults.headers.common["Authorization"];
+          toast.error("Session expired. Please login again.", {
+            id: "session-expired",
+          });
+        }
+        return Promise.reject(error);
+      },
+    );
+
+    return () => api.interceptors.response.eject(interceptor);
+  }, []);
 
   const value = { user, loading, login, logout, register };
 

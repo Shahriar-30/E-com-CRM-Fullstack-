@@ -1,17 +1,16 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "../AuthContext";
+import { useAuth } from "./auth/AuthContext";
 
-import Register from "../Register";
-import Layout from "../Layout";
-import Login from "../Login";
-import Dashboard from "../Dashboard";
-import Customers from "../Customers";
-import Orders from "../Orders";
-import Products from "../Products";
-import Coupons from "../Coupons";
-import Marketing from "../Marketing";
-import Support from "../Support";
-import Analytics from "../Analytics";
+import Register from "./pages/Register";
+import Layout from "./layout/Layout";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Customers from "./pages/Customers";
+import Orders from "./pages/Orders";
+import Products from "./pages/Products";
+import Coupons from "./pages/Coupons";
+import Marketing from "./pages/Marketing";
+import Support from "./pages/Support";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -86,14 +85,6 @@ function App() {
         element={
           <ProtectedRoute>
             <Support />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute>
-            <Analytics />
           </ProtectedRoute>
         }
       />

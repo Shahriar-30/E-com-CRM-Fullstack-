@@ -21,8 +21,11 @@ export const createOrder = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(customerId))
     throw new apiError(400, "Invalid customer Id");
 
-  let customer = await Customer.findById(customerId);
-  if (!customer) throw new apiError(404, "Customer not found");
+  let customer = await Customer.findOne({
+    _id: customerId,
+    createdBy: req.user._id,
+  });
+  if (!customer) throw new apiError(404, "Customer not found or access denied");
 
   let couponId = null;
   let coupon_discount = 0;
@@ -132,8 +135,11 @@ export const getOrderById = asyncHandler(async (req, res) => {
       },
     },
     {
-      $addFields: {
-        customer_details: { $arrayElemAt: ["$customer_details", 0] },
+      $unwind: "$customer_details",
+    },
+    {
+      $match: {
+        "customer_details.createdBy": new mongoose.Types.ObjectId(req.user._id),
       },
     },
   ]);
@@ -146,7 +152,12 @@ export const getOrderByStatus = asyncHandler(async (req, res) => {
   let { status } = req.query;
   if (!status) throw new apiError(400, "Order status is missing");
 
-  const query = {};
+  const myCustomers = await Customer.find({ createdBy: req.user._id }).select(
+    "_id"
+  );
+  const myCustomerIds = myCustomers.map((c) => c._id);
+
+  const query = { customerId: { $in: myCustomerIds } };
   if (status && status.toLowerCase() !== "all") {
     query.status = status;
   }
@@ -168,6 +179,15 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   let { status } = req.query;
   if (!status) throw new apiError(400, "Order status is missing");
 
+  const orderCheck = await Order.findById(id).populate("customerId");
+  if (
+    !orderCheck ||
+    !orderCheck.customerId ||
+    orderCheck.customerId.createdBy.toString() !== req.user._id.toString()
+  ) {
+    throw new apiError(404, "Order not found");
+  }
+
   const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
   if (!order) throw new apiError(404, "Order not found");
 
@@ -188,12 +208,15 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   }
 
   // Revert customer stats
-  const customer = await Customer.findById(order.customerId);
-  if (customer) {
-    customer.orderCount -= 1;
-    customer.totalSpent -= order.total;
-    await customer.save({ validateBeforeSave: false });
-  }
+  const customer = await Customer.findOne({
+    _id: order.customerId,
+    createdBy: req.user._id,
+  });
+  if (!customer) throw new apiError(404, "Order not found or access denied");
+
+  customer.orderCount -= 1;
+  customer.totalSpent -= order.total;
+  await customer.save({ validateBeforeSave: false });
 
   // Revert coupon usage
   if (order.couponId) {

@@ -9,7 +9,6 @@ export const app = express();
 
 // corn
 startSegmentCron(runSegmentEngine);
-// startAnalyticsCron();
 
 // helper middleware
 app.use(cors());

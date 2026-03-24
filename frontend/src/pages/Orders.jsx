@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "./axios";
+import api from "../../axios";
 import toast from "react-hot-toast";
 import { X, Plus, Search, Trash2, Save } from "lucide-react";
 
@@ -22,6 +22,7 @@ const Orders = () => {
   const [selectionList, setSelectionList] = useState([]);
   const [selectionSearch, setSelectionSearch] = useState("");
   const [createOrderItems, setCreateOrderItems] = useState([]);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [createData, setCreateData] = useState({
     customerId: "",
     couponCode: "",
@@ -46,7 +47,7 @@ const Orders = () => {
       setOrders(data.data);
     } catch (error) {
       setOrders([]); // Clear on error
-      toast.error(`Failed to fetch ${status} orders.`);
+      toast.error(`Failed to fetch  orders.`);
     } finally {
       setLoading(false);
     }
@@ -67,19 +68,30 @@ const Orders = () => {
     try {
       // Fetch Order Details (returns an array based on controller)
       const orderRes = await api.get(`/order/ordermodify/${orderId}`);
-      const orderData = Array.isArray(orderRes.data)
-        ? orderRes.data[0]
-        : orderRes.data;
+
+      let orderData = orderRes.data.data || orderRes.data;
+      if (Array.isArray(orderData)) {
+        orderData = orderData.length > 0 ? orderData[0] : null;
+      }
+
+      if (!orderData) throw new Error("Order not found");
+
       setSelectedOrder(orderData);
       setTempStatus(orderData.status);
 
       // Fetch Order Items
-      const itemsRes = await api.get(
-        `/orderitem/orderitemmodify?orderId=${orderId}`,
-      );
-      setOrderItems(itemsRes.data.data);
+      try {
+        const itemsRes = await api.get(
+          `/orderitem/orderitemmodify?orderId=${orderId}`,
+        );
+        setOrderItems(itemsRes.data.data || []);
+      } catch (itemError) {
+        console.error("Failed to fetch items:", itemError);
+        toast.error("Failed to fetch order items.");
+      }
     } catch (error) {
       toast.error("Failed to fetch order details.");
+      console.error(error);
     } finally {
       setLoadingDetails(false);
     }
@@ -125,13 +137,18 @@ const Orders = () => {
   const handleCreateOrder = async (e) => {
     e.preventDefault();
 
+    if (!createData.customerId) {
+      toast.error("Please select a customer.");
+      return;
+    }
+
     if (createOrderItems.length === 0) {
       toast.error("Please add at least one item to the order.");
       return;
     }
 
     setCreatingOrder(true);
-    const subTotal = createOrderItems.reduce(
+    let subTotal = createOrderItems.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
       0,
     );
@@ -170,6 +187,7 @@ const Orders = () => {
         paymentMethod: "card",
         shippingAddress: "",
       });
+      setSelectedCoupon(null);
       setCreateOrderItems([]);
       fetchOrders();
     } catch (error) {
@@ -193,14 +211,10 @@ const Orders = () => {
         setSelectionList(data.data.allCustomer || []);
       } else if (showCouponModal) {
         // Assuming coupon endpoint supports search or return all
-        const { data } = await api.get(`/coupon`);
-        const allCoupons = data.data || [];
-        const filtered = selectionSearch
-          ? allCoupons.filter((c) =>
-              c.code.toLowerCase().includes(selectionSearch.toLowerCase()),
-            )
-          : allCoupons;
-        setSelectionList(filtered);
+        const { data } = await api.get(`/coupon/getcoupon`, {
+          params: { query: selectionSearch },
+        });
+        setSelectionList(data.data || []);
       } else if (showProductModal) {
         // Assuming product endpoint returns list
         // Use the correct endpoint defined in product.route.js and utilize server-side search
@@ -260,6 +274,25 @@ const Orders = () => {
     if (type === "coupon") setShowCouponModal(true);
     if (type === "product") setShowProductModal(true);
   };
+
+  const calculateTotals = () => {
+    const subTotal = createOrderItems.reduce(
+      (sum, item) => sum + item.unitPrice * item.quantity,
+      0,
+    );
+    let discount = 0;
+    if (selectedCoupon) {
+      if (selectedCoupon.discountType === "percentage") {
+        discount = (subTotal * selectedCoupon.discountValue) / 100;
+      } else if (selectedCoupon.discountType === "flat") {
+        discount = selectedCoupon.discountValue;
+      }
+    }
+    const total = Math.max(0, subTotal - discount);
+    return { subTotal, discount, total };
+  };
+
+  const { subTotal, discount, total } = calculateTotals();
 
   return (
     <div className="space-y-6">
@@ -559,6 +592,7 @@ const Orders = () => {
                         setShowCustomerModal(false);
                       } else if (showCouponModal) {
                         setCreateData({ ...createData, couponCode: item.code });
+                        setSelectedCoupon(item);
                         setShowCouponModal(false);
                       } else if (showProductModal) {
                         addItemToOrder(item);
@@ -729,15 +763,22 @@ const Orders = () => {
                   )}
                 </div>
                 <div className="flex justify-end mt-2">
-                  <p className="text-lg font-bold">
-                    Subtotal: $
-                    {createOrderItems
-                      .reduce(
-                        (sum, item) => sum + item.unitPrice * item.quantity,
-                        0,
-                      )
-                      .toFixed(2)}
-                  </p>
+                  <div className="w-64 space-y-1 text-right">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Subtotal:</span>
+                      <span>${subTotal.toFixed(2)}</span>
+                    </div>
+                    {selectedCoupon && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount ({selectedCoupon.code}):</span>
+                        <span>-${discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-lg text-gray-900 border-t pt-2">
+                      <span>Total:</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

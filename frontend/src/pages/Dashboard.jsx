@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "./axios";
+import api from "../../axios";
 import {
   BarChart,
   Bar,
@@ -9,8 +9,14 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { Users, DollarSign, ShoppingBag, MessageSquare } from "lucide-react";
-import StatCard from "./StatCard";
+import {
+  Users,
+  DollarSign,
+  ShoppingBag,
+  MessageSquare,
+  RefreshCcw,
+} from "lucide-react";
+import StatCard from "../components/StatCard";
 import toast from "react-hot-toast";
 
 const Dashboard = () => {
@@ -19,45 +25,66 @@ const Dashboard = () => {
   const [openTickets, setOpenTickets] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
+
+      const analyticsPromise = api.get(
+        `/analytics?startDate=${sevenDaysAgo.toISOString()}&endDate=${today.toISOString()}`,
+      );
+      const ordersPromise = api.get("/order/getorderbystatus?status=all");
+      const supportPromise = api.get("/support?status=open");
+
+      const [analyticsRes, ordersRes, supportRes] = await Promise.all([
+        analyticsPromise,
+        ordersPromise,
+        supportPromise,
+      ]);
+
+      setAnalytics(analyticsRes.data.data);
+      setOrders(ordersRes.data.data);
+      setOpenTickets(supportRes.data.data.total);
+    } catch (error) {
+      toast.error("Failed to fetch dashboard data.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const today = new Date();
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 7);
-
-        const analyticsPromise = api.get(
-          `/analytics?startDate=${sevenDaysAgo.toISOString()}&endDate=${today.toISOString()}`,
-        );
-        const ordersPromise = api.get("/order/status?status=pending");
-        const supportPromise = api.get("/support?status=open");
-
-        const [analyticsRes, ordersRes, supportRes] = await Promise.all([
-          analyticsPromise,
-          ordersPromise,
-          supportPromise,
-        ]);
-
-        setAnalytics(analyticsRes.data.data);
-        setOrders(ordersRes.data.data);
-        setOpenTickets(supportRes.data.data.total);
-      } catch (error) {
-        toast.error("Failed to fetch dashboard data.");
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
+
+  const handleRefresh = async () => {
+    try {
+      await api.post("/analytics/calculate");
+      toast.success("Analytics refreshed!");
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to refresh analytics.");
+      console.error(error);
+    }
+  };
 
   const summary = analytics?.summary || {};
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+        >
+          <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
+          Refresh Data
+        </button>
+      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

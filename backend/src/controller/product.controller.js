@@ -32,15 +32,13 @@ export const getProduct = asyncHandler(async (req, res) => {
   page = Number(page);
   limit = Number(limit);
 
-  let searchQuery = {};
+  let searchQuery = { createdBy: req.user._id };
 
   if (query) {
-    searchQuery = {
-      $or: [
-        { name: { $regex: query, $options: "i" } },
-        { tags: { $regex: query, $options: "i" } },
-      ],
-    };
+    searchQuery.$or = [
+      { name: { $regex: query, $options: "i" } },
+      { tags: { $regex: query, $options: "i" } },
+    ];
   }
 
   const allProducts = await Product.find(searchQuery)
@@ -58,7 +56,10 @@ export const getProductById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new apiError(400, "Invalid product id");
 
-  let product = await Product.findById(id).populate("createdBy");
+  let product = await Product.findOne({
+    _id: id,
+    createdBy: req.user._id,
+  }).populate("createdBy");
   if (!product) throw new apiError(404, "Product not found");
 
   res.status(200).json(new apiRes(200, product, "Product found successfully"));
@@ -72,7 +73,11 @@ export const updateProductById = asyncHandler(async (req, res) => {
   let { updateData } = req.body;
   if (!updateData) throw new apiError(400, "Product update data is required");
 
-  let product = await Product.findByIdAndUpdate(id, updateData, { new: true });
+  let product = await Product.findOneAndUpdate(
+    { _id: id, createdBy: req.user._id },
+    updateData,
+    { new: true }
+  );
   if (!product) throw new apiError(404, "Product not found");
 
   res
@@ -85,7 +90,10 @@ export const deleteProductById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new apiError(400, "Invalid product id");
 
-  let product = await Product.findByIdAndDelete(id);
+  let product = await Product.findOneAndDelete({
+    _id: id,
+    createdBy: req.user._id,
+  });
   if (!product) throw new apiError(404, "Product not found");
 
   res

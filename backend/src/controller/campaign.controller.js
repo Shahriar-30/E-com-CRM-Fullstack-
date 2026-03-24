@@ -13,7 +13,7 @@ export const getCampaigns = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
-  const query = {};
+  const query = { createdBy: req.user._id };
   if (search) {
     query.name = { $regex: search, $options: "i" };
   }
@@ -44,13 +44,19 @@ export const createCampaign = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(segmentId)) {
     throw new apiError(400, "Invalid segment ID");
   }
-  const segment = await Segment.findById(segmentId);
+  const segment = await Segment.findOne({
+    _id: segmentId,
+    createdBy: req.user._id,
+  });
   if (!segment) throw new apiError(404, "Segment not found");
 
   if (!mongoose.Types.ObjectId.isValid(couponId)) {
     throw new apiError(400, "Invalid coupon ID");
   }
-  const coupon = await Coupon.findById(couponId);
+  const coupon = await Coupon.findOne({
+    _id: couponId,
+    createdBy: req.user._id,
+  });
   if (!coupon) throw new apiError(404, "Coupon not found");
 
   const campaign = await Campaign.create({
@@ -60,6 +66,7 @@ export const createCampaign = asyncHandler(async (req, res) => {
     segmentId,
     couponId,
     scheduledAt,
+    createdBy: req.user._id,
   });
 
   res
@@ -75,9 +82,13 @@ export const updateCampaign = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid campaign ID");
   }
 
-  const campaign = await Campaign.findByIdAndUpdate(id, updateData, {
-    new: true,
-  });
+  const campaign = await Campaign.findOneAndUpdate(
+    { _id: id, createdBy: req.user._id },
+    updateData,
+    {
+      new: true,
+    }
+  );
 
   if (!campaign) {
     throw new apiError(404, "Campaign not found");
@@ -95,7 +106,10 @@ export const deleteCampaign = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid campaign ID");
   }
 
-  const campaign = await Campaign.findByIdAndDelete(id);
+  const campaign = await Campaign.findOneAndDelete({
+    _id: id,
+    createdBy: req.user._id,
+  });
 
   if (!campaign) {
     throw new apiError(404, "Campaign not found");
@@ -111,7 +125,10 @@ export const sendCampaign = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid campaign ID");
   }
 
-  const campaign = await Campaign.findById(id).populate("couponId");
+  const campaign = await Campaign.findOne({
+    _id: id,
+    createdBy: req.user._id,
+  }).populate("couponId");
   if (!campaign) throw new apiError(404, "Campaign not found");
 
   const segment = await Segment.findById(campaign.segmentId);
@@ -122,13 +139,13 @@ export const sendCampaign = asyncHandler(async (req, res) => {
 
   for (const customer of customers) {
     // CHECK: Email Settings Compliance
-    const settings = customer.emailSettings || {};
+    // const settings = customer.emailSettings || {};
 
     // 1. Must be subscribed
-    if (settings.subscribed === false) continue;
+    // if (settings.subscribed === false) continue;
 
     // 2. Must allow marketing emails
-    if (settings.marketingEmails === false) continue;
+    // if (settings.marketingEmails === false) continue;
 
     const { subject, html } = generateCampaignEmail(
       customer.name,
@@ -145,6 +162,17 @@ export const sendCampaign = asyncHandler(async (req, res) => {
       await customer.save({ validateBeforeSave: false });
     } catch (err) {
       console.error(`Failed to send campaign email to ${customer.email}`, err);
+      // If connection is refused, abort the entire campaign send to prevent spamming logs and false success
+      if (
+        err.code === "ECONNREFUSED" ||
+        err.code === "EAUTH" ||
+        err.code === "ESOCKET"
+      ) {
+        throw new apiError(
+          500,
+          `Email Server Error: ${err.message}. Check your .env SMTP settings.`
+        );
+      }
       // Continue to next customer even if one fails
     }
   }

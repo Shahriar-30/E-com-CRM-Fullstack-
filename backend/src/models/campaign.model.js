@@ -36,6 +36,11 @@ const campaignSchema = new mongoose.Schema(
     scheduledAt: {
       type: Date,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true }
 );

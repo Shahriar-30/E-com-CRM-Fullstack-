@@ -30,6 +30,11 @@ const couponSchema = new mongoose.Schema(
       default: true,
     },
     expiresAt: Date,
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true }
 );
