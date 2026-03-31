@@ -9,8 +9,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
  * Calculates analytics for a given date and stores it in the database.
  * Defaults to yesterday if no date is provided.
  * @param {Date} [targetDate] - The date to calculate analytics for.
+ * @param {String} [userId] - The user ID to calculate analytics for. If not provided, uses global data.
  */
-export const calculateDailyAnalytics = async (targetDate) => {
+export const calculateDailyAnalytics = async (targetDate, userId) => {
   const dateToProcess = targetDate ? new Date(targetDate) : new Date();
   if (!targetDate) {
     // By default, process yesterday's data for the cron job
@@ -24,9 +25,20 @@ export const calculateDailyAnalytics = async (targetDate) => {
   endOfDay.setUTCHours(23, 59, 59, 999);
 
   // 1. Get all orders for the day
-  const orders = await Order.find({
+  let orderQuery = {
     createdAt: { $gte: startOfDay, $lte: endOfDay },
-  });
+  };
+
+  // If userId is provided, filter orders by that user's customers
+  if (userId) {
+    const userCustomers = await Customer.find({ createdBy: userId }).select(
+      "_id"
+    );
+    const userCustomerIds = userCustomers.map((c) => c._id);
+    orderQuery.customerId = { $in: userCustomerIds };
+  }
+
+  const orders = await Order.find(orderQuery);
 
   // 2. Calculate basic order stats
   const totalOrders = orders.length;
@@ -35,9 +47,13 @@ export const calculateDailyAnalytics = async (targetDate) => {
   const couponUsage = orders.filter((order) => order.couponId).length;
 
   // 3. Calculate new customers
-  const newCustomers = await Customer.countDocuments({
+  let customerQuery = {
     createdAt: { $gte: startOfDay, $lte: endOfDay },
-  });
+  };
+  if (userId) {
+    customerQuery.createdBy = userId;
+  }
+  const newCustomers = await Customer.countDocuments(customerQuery);
 
   // 4. Calculate repeat rate
   let returningCustomerOrderCount = 0;
@@ -68,7 +84,16 @@ export const calculateDailyAnalytics = async (targetDate) => {
     couponUsage,
   };
 
-  await Analytic.findOneAndUpdate({ date: startOfDay }, analyticsData, {
+  if (userId) {
+    analyticsData.createdBy = userId;
+  }
+
+  const query = { date: startOfDay };
+  if (userId) {
+    query.createdBy = userId;
+  }
+
+  await Analytic.findOneAndUpdate(query, analyticsData, {
     upsert: true,
   });
 
@@ -90,10 +115,16 @@ export const getAnalytics = asyncHandler(async (req, res) => {
 
   const dailyData = await Analytic.find({
     date: { $gte: start, $lte: end },
+    createdBy: req.user._id,
   }).sort({ date: "asc" });
 
   const summary = await Analytic.aggregate([
-    { $match: { date: { $gte: start, $lte: end } } },
+    {
+      $match: {
+        date: { $gte: start, $lte: end },
+        createdBy: req.user._id,
+      },
+    },
     {
       $group: {
         _id: null,
@@ -134,7 +165,7 @@ export const getAnalytics = asyncHandler(async (req, res) => {
 
 export const refreshAnalytics = asyncHandler(async (req, res) => {
   // Calculate for today (new Date()) to provide real-time updates for the dashboard
-  await calculateDailyAnalytics(new Date());
+  await calculateDailyAnalytics(new Date(), req.user._id);
 
   res
     .status(200)

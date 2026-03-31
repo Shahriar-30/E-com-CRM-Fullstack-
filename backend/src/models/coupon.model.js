@@ -20,7 +20,10 @@ const couponSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    maxUser: Number,
+    maxUser: {
+      type: Number,
+      default: 999999,
+    },
     usedCount: {
       type: Number,
       default: 0,

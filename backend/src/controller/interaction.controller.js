@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Interaction } from "../models/interaction.model.js";
+import { Customer } from "../models/customer.model.js";
 import { apiError } from "../utils/apiError.js";
 import { apiRes } from "../utils/apiRes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -13,6 +14,15 @@ export const getInteractions = asyncHandler(async (req, res) => {
 
   if (!mongoose.Types.ObjectId.isValid(customerId)) {
     throw new apiError(400, "Invalid customer ID");
+  }
+
+  // Verify the customer belongs to the authenticated user
+  const customer = await Customer.findOne({
+    _id: customerId,
+    createdBy: req.user._id,
+  });
+  if (!customer) {
+    throw new apiError(404, "Customer not found or access denied");
   }
 
   const interactions = await Interaction.find({ customerId }).sort({
@@ -36,6 +46,15 @@ export const createInteraction = asyncHandler(async (req, res) => {
 
   if (!mongoose.Types.ObjectId.isValid(customerId)) {
     throw new apiError(400, "Invalid customer ID");
+  }
+
+  // Verify the customer belongs to the authenticated user
+  const customer = await Customer.findOne({
+    _id: customerId,
+    createdBy: req.user._id,
+  });
+  if (!customer) {
+    throw new apiError(404, "Customer not found or access denied");
   }
 
   const interaction = await Interaction.create({

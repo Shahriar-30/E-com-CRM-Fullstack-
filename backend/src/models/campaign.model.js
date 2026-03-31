@@ -32,6 +32,9 @@ const campaignSchema = new mongoose.Schema(
       enum: ["draft", "scheduled", "sent"],
       default: "draft",
     },
+    emailContent: {
+      type: String,
+    },
     sentCount: Number,
     scheduledAt: {
       type: Date,

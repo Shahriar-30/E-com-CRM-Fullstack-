@@ -31,7 +31,10 @@ export const createOrder = asyncHandler(async (req, res) => {
   let coupon_discount = 0;
 
   if (couponCode) {
-    let coupon = await Coupon.findOne({ code: couponCode });
+    let coupon = await Coupon.findOne({
+      code: couponCode,
+      createdBy: req.user._id,
+    });
     if (!coupon) throw new apiError(404, "Invalid coupon code");
 
     if (!coupon.isActive) throw new apiError(400, "Coupon is not active");
@@ -39,7 +42,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     if (subTotal < coupon.minOrderValue)
       throw new apiError(400, `Minimum order value is ${coupon.minOrderValue}`);
 
-    if (coupon.usedCount >= coupon.maxUser)
+    if (coupon.maxUser && coupon.usedCount >= coupon.maxUser)
       throw new apiError(400, "Coupon usage limit reached");
 
     if (coupon.expiresAt && coupon.expiresAt < new Date())

@@ -190,7 +190,7 @@ const Customers = () => {
               customers.map((customer) => (
                 <tr
                   key={customer._id}
-                  className="bg-white border-b hover:bg-gray-50"
+                  className="bg-white border-b hover:bg-gray-100 cursor-pointer"
                   onClick={() => handleRowClick(customer)}
                 >
                   <td className="px-6 py-4 font-medium text-gray-900">

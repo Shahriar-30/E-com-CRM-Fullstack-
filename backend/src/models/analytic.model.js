@@ -9,6 +9,10 @@ const analyticSchema = new mongoose.Schema(
     repeatRate: String,
     avgOrderValue: Number,
     couponUsage: Number,
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );

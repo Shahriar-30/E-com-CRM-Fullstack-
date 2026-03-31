@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { apiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { OrderItem } from "../models/orderItem.model.js";
+import { Order } from "../models/order.models.js";
+import { Customer } from "../models/customer.model.js";
 import { apiRes } from "../utils/apiRes.js";
 import { Product } from "../models/product.model.js";
 
@@ -14,6 +16,15 @@ export const createOrderItem = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid order id");
   if (!mongoose.Types.ObjectId.isValid(productId))
     throw new apiError(400, "Invalid product id");
+
+  // Verify order belongs to the authenticated user
+  const order = await Order.findById(orderId).populate("customerId");
+  if (
+    !order ||
+    order.customerId.createdBy.toString() !== req.user._id.toString()
+  ) {
+    throw new apiError(404, "Order not found or access denied");
+  }
 
   let product = await Product.findById(productId);
   if (!product) throw new apiError(404, "Product not found");
@@ -44,6 +55,15 @@ export const getOrderItems = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid order id");
   }
 
+  // Verify order belongs to the authenticated user
+  const order = await Order.findById(orderId).populate("customerId");
+  if (
+    !order ||
+    order.customerId.createdBy.toString() !== req.user._id.toString()
+  ) {
+    throw new apiError(404, "Order not found or access denied");
+  }
+
   const orderItems = await OrderItem.find({ orderId }).populate([
     "orderId",
     "productId",
@@ -59,6 +79,15 @@ export const deleteOrderItems = asyncHandler(async (req, res) => {
 
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new apiError(400, "Invalid order id");
+  }
+
+  // Verify order belongs to the authenticated user
+  const order = await Order.findById(orderId).populate("customerId");
+  if (
+    !order ||
+    order.customerId.createdBy.toString() !== req.user._id.toString()
+  ) {
+    throw new apiError(404, "Order not found or access denied");
   }
 
   const deletedItems = await OrderItem.deleteMany({ orderId });

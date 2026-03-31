@@ -1,23 +1,25 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { Navigate, useLocation, Link } from "react-router-dom";
+import { Navigate, useLocation, Link, useNavigate } from "react-router-dom";
 
 const Register = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { register, user } = useAuth();
-  const location = useLocation();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    await register(fullName, email, password);
+    const { success } = await register(fullName, email, password);
+    if (success) {
+      navigate("/dashboard");
+    }
   };
 
   if (user) {
-    const from = location.state?.from?.pathname || "/";
-    return <Navigate to={from} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

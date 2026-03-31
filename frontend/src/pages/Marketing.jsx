@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Eye,
 } from "lucide-react";
 
 const Marketing = () => {
@@ -21,6 +22,12 @@ const Marketing = () => {
   // Modal Visibility
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [showSegmentModal, setShowSegmentModal] = useState(false);
+  const [showCampaignDetailsModal, setShowCampaignDetailsModal] =
+    useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [campaignEmails, setCampaignEmails] = useState([]);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [loadingCampaignDetails, setLoadingCampaignDetails] = useState(false);
 
   // Forms
   const [campaignForm, setCampaignForm] = useState({
@@ -89,7 +96,7 @@ const Marketing = () => {
     }
   };
 
-  const handleSendCampaign = async (id) => {
+  const handleSendCampaign = async (id, emailContent = null) => {
     if (
       !window.confirm(
         "Are you sure you want to send this campaign to all recipients?",
@@ -99,9 +106,11 @@ const Marketing = () => {
 
     const toastId = toast.loading("Sending campaign emails...");
     try {
-      await api.post(`/campaign/${id}/send`);
+      const payload = emailContent ? { emailContent } : {};
+      await api.post(`/campaign/${id}/send`, payload);
       toast.success("Campaign sent successfully!", { id: toastId });
       fetchData();
+      handleCloseCampaignDetails();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to send campaign", {
         id: toastId,
@@ -128,6 +137,14 @@ const Marketing = () => {
     try {
       await api.post("/segment/createsegment", segmentForm);
       toast.success("Segment created successfully");
+
+      // Auto-run segmentation engine for the first time
+      try {
+        await api.post("/segment/runsegmentengine");
+      } catch (engineError) {
+        console.error("Failed to run engine automatically", engineError);
+      }
+
       setShowSegmentModal(false);
       fetchData();
       setSegmentForm({
@@ -160,6 +177,38 @@ const Marketing = () => {
     } catch (error) {
       toast.error("Failed to delete segment");
     }
+  };
+
+  // --- Campaign Details Modal ---
+
+  const handleViewCampaignDetails = async (campaign) => {
+    setLoadingCampaignDetails(true);
+    try {
+      const response = await api.get(`/campaign/${campaign._id}`);
+      const {
+        campaign: fullCampaign,
+        emails,
+        emailContent,
+      } = response.data.data;
+
+      setSelectedCampaign(fullCampaign);
+      setCampaignEmails(emails);
+      setEmailDraft(emailContent || ""); // Load email template
+
+      setShowCampaignDetailsModal(true);
+    } catch (error) {
+      toast.error("Failed to load campaign details");
+      console.error(error);
+    } finally {
+      setLoadingCampaignDetails(false);
+    }
+  };
+
+  const handleCloseCampaignDetails = () => {
+    setShowCampaignDetailsModal(false);
+    setSelectedCampaign(null);
+    setCampaignEmails([]);
+    setEmailDraft("");
   };
 
   return (
@@ -255,7 +304,10 @@ const Marketing = () => {
                         key={campaign._id}
                         className="bg-white hover:bg-gray-50"
                       >
-                        <td className="px-6 py-4 font-medium text-gray-900">
+                        <td
+                          className="px-6 py-4 font-medium text-indigo-600 cursor-pointer hover:underline"
+                          onClick={() => handleViewCampaignDetails(campaign)}
+                        >
                           {campaign.name}
                         </td>
                         <td className="px-6 py-4">
@@ -282,6 +334,15 @@ const Marketing = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                handleViewCampaignDetails(campaign)
+                              }
+                              className="text-gray-600 hover:text-indigo-600 p-2 hover:bg-indigo-100 rounded-full transition-colors"
+                              title="View Campaign Details"
+                            >
+                              <Eye size={20} />
+                            </button>
                             {campaign.state !== "sent" && (
                               <button
                                 onClick={() => handleSendCampaign(campaign._id)}
@@ -424,7 +485,7 @@ const Marketing = () => {
                       })
                     }
                   >
-                    {["email", "sms"].map((c) => (
+                    {["email"].map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -643,6 +704,148 @@ const Marketing = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign Details Modal */}
+      {showCampaignDetailsModal && selectedCampaign && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {selectedCampaign.name}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Campaign ID: {selectedCampaign._id.slice(-6)}
+                </p>
+              </div>
+              <button
+                onClick={handleCloseCampaignDetails}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Campaign Details Section */}
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">
+                    Type
+                  </p>
+                  <p className="text-lg font-medium text-gray-900 capitalize mt-1">
+                    {selectedCampaign.type}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">
+                    Channel
+                  </p>
+                  <p className="text-lg font-medium text-gray-900 capitalize mt-1">
+                    {selectedCampaign.channel}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">
+                    Status
+                  </p>
+                  <p className="mt-1">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-semibold inline-block ${
+                        selectedCampaign.state === "sent"
+                          ? "bg-green-100 text-green-800"
+                          : selectedCampaign.state === "scheduled"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {selectedCampaign.state.toUpperCase()}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">
+                    Total Recipients
+                  </p>
+                  <p className="text-lg font-medium text-gray-900 mt-1">
+                    {campaignEmails.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Email Draft Section */}
+              <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-white">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Email Draft
+                  </h3>
+                  <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
+                    Editable
+                  </span>
+                </div>
+                <textarea
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                  placeholder="Edit your email template here..."
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Recipients List Section */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Audience ({campaignEmails.length} recipients)
+                </h3>
+
+                {loadingCampaignDetails ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                  </div>
+                ) : campaignEmails.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200 text-gray-500">
+                    No recipients in this segment.
+                  </div>
+                ) : (
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="max-h-96 overflow-y-auto">
+                      <ul className="divide-y divide-gray-200">
+                        {campaignEmails.map((item, idx) => (
+                          <li
+                            key={idx}
+                            className="px-4 py-3 hover:bg-gray-50 transition-colors text-gray-900"
+                          >
+                            {item.email || `${item.name || "User"}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex justify-end gap-3">
+              <button
+                onClick={handleCloseCampaignDetails}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors font-medium"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  handleSendCampaign(selectedCampaign._id, emailDraft);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"
+              >
+                <Send size={18} /> Send Campaign
+              </button>
+            </div>
           </div>
         </div>
       )}

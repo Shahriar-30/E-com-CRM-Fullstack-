@@ -7,7 +7,10 @@ import { apiError } from "../utils/apiError.js";
 import { apiRes } from "../utils/apiRes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { sendEmail } from "../utils/sendEmail.js";
-import { generateCampaignEmail } from "../utils/emailTemplates.js";
+import {
+  generateCampaignEmail,
+  getCampaignTemplate,
+} from "../utils/emailTemplates.js";
 
 export const getCampaigns = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
@@ -31,6 +34,59 @@ export const getCampaigns = asyncHandler(async (req, res) => {
     .status(200)
     .json(
       new apiRes(200, { campaigns, total }, "Campaigns fetched successfully")
+    );
+});
+
+export const getCampaignDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new apiError(400, "Invalid campaign ID");
+  }
+
+  const campaign = await Campaign.findOne({
+    _id: id,
+    createdBy: req.user._id,
+  })
+    .populate("segmentId")
+    .populate("couponId");
+
+  if (!campaign) {
+    throw new apiError(404, "Campaign not found");
+  }
+
+  // Fetch segment customers with their email details
+  const segment = await Segment.findById(campaign.segmentId).populate({
+    path: "customerIds",
+    select: "email name",
+  });
+
+  // Create email list from customers
+  const emails =
+    segment?.customerIds?.map((customer) => ({
+      customerId: customer._id,
+      email: customer.email,
+      name: customer.name,
+      status: "pending", // Would need to track in database if you want actual status
+    })) || [];
+
+  // Get email template based on campaign type and coupon code
+  const emailTemplate = getCampaignTemplate(
+    campaign.type,
+    campaign.couponId?.code
+  );
+
+  // Use stored email content if exists, otherwise use template
+  const emailContent = campaign.emailContent || emailTemplate;
+
+  res
+    .status(200)
+    .json(
+      new apiRes(
+        200,
+        { campaign, emails, emailContent },
+        "Campaign details fetched successfully"
+      )
     );
 });
 
@@ -59,6 +115,9 @@ export const createCampaign = asyncHandler(async (req, res) => {
   });
   if (!coupon) throw new apiError(404, "Coupon not found");
 
+  // Generate email template based on campaign type
+  const emailContent = getCampaignTemplate(type, coupon.code);
+
   const campaign = await Campaign.create({
     name,
     type,
@@ -66,6 +125,7 @@ export const createCampaign = asyncHandler(async (req, res) => {
     segmentId,
     couponId,
     scheduledAt,
+    emailContent,
     createdBy: req.user._id,
   });
 
@@ -120,6 +180,7 @@ export const deleteCampaign = asyncHandler(async (req, res) => {
 
 export const sendCampaign = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const { emailContent } = req.body; // Get edited email content from request
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new apiError(400, "Invalid campaign ID");
@@ -130,6 +191,12 @@ export const sendCampaign = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   }).populate("couponId");
   if (!campaign) throw new apiError(404, "Campaign not found");
+
+  // Update emailContent if provided
+  if (emailContent) {
+    campaign.emailContent = emailContent;
+    await campaign.save();
+  }
 
   const segment = await Segment.findById(campaign.segmentId);
   if (!segment) throw new apiError(404, "Segment not found");
@@ -147,14 +214,16 @@ export const sendCampaign = asyncHandler(async (req, res) => {
     // 2. Must allow marketing emails
     // if (settings.marketingEmails === false) continue;
 
-    const { subject, html } = generateCampaignEmail(
-      customer.name,
-      `We have a special offer for you in our ${campaign.name} campaign!`,
-      campaign.couponId.code
+    // Use stored email content with customer name
+    const html = campaign.emailContent.replace(
+      /<h2[^>]*>Hello [^,]*,/,
+      `<h2 style="color: #333; margin-bottom: 15px;">Hello ${customer.name},`
     );
 
+    const subject = `${campaign.name} - Special Offer from Us`;
+
     try {
-      await sendEmail(null, customer.email, subject, "Special Offer", html);
+      await sendEmail(null, customer.email, subject, campaign.name, html);
       sentCount++;
 
       // Update last email sent time

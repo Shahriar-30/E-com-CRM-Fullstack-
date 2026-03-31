@@ -3,8 +3,8 @@ import { useAuth } from "../auth/AuthContext";
 import { Navigate, useLocation, Link } from "react-router-dom";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("alsiphat30@gmail.com");
+  const [password, setPassword] = useState("1234");
   const { login, user } = useAuth();
   const location = useLocation();
 
@@ -21,7 +21,11 @@ const Login = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="p-8 bg-white rounded-lg shadow-md w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-6">CRM Login</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">CRM Login</h1>
+        <p className="text-center text-sm text-gray-500 mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          💡 <strong>Demo Account:</strong> The email and password below are
+          pre-filled for easy testing. Feel free to change them.
+        </p>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 mb-2" htmlFor="email">

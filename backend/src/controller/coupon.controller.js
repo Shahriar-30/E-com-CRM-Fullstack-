@@ -103,7 +103,7 @@ export const isValidCoupon = asyncHandler(async (req, res) => {
   if (subTotal && Number(subTotal) < coupon.minOrderValue)
     throw new apiError(400, `Minimum order value is ${coupon.minOrderValue}`);
 
-  if (coupon.usedCount >= coupon.maxUser)
+  if (coupon.maxUser && coupon.usedCount >= coupon.maxUser)
     throw new apiError(400, "Coupon usage limit reached");
 
   if (coupon.expiresAt && coupon.expiresAt < new Date())
